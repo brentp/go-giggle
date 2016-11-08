@@ -33,3 +33,13 @@ func main() {
     lines = res.Of(1)
 }
 ```
+
+setup
+=====
+
+```
+grep -l "int main" giggle/src/*.c | xargs -I{} rm {} giggle/src/$(basename {} .c).h
+# timer start() conflicts with jsw start()
+rm giggle/src/timer.h
+grep -v "timer.h" giggle/src/giggle_index.c > $$.tmp; mv $$.tmp giggle/src/giggle_index.c
+```

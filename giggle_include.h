@@ -1,0 +1,13 @@
+#define _GNU_SOURCE
+#include <ftw.h>
+#include "ll.c"
+#include "giggle_index.c"
+#include "util.c"
+#include "leaf.c"
+#include "jsw_avltree.c"
+#include "cache.c"
+#include "file_read.c"
+#include "wah.c"
+#include "bpt.c"
+#include "lists.c"
+#include "disk_store.c"

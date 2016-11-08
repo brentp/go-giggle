@@ -1,10 +1,9 @@
 package giggle
 
 /*
-#cgo CFLAGS: -g -O2 -fPIC -m64 -I${SRCDIR}/htslib
+#cgo CFLAGS: -g -O2 -fPIC -m64 -I${SRCDIR}/htslib -I${SRCDIR}/giggle/src/
 #cgo LDFLAGS: -ldl -lz -lm -lpthread -lhts
-#include "giggle_index.h"
-#include "ll.h"
+#include "giggle_include.h"
 
 typedef struct giggle_index giggle_index;
 typedef struct giggle_query_result giggle_query_result;
