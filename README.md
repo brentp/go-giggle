@@ -14,8 +14,11 @@ import (
 
 func main() {
 
-    g := giggle.Open("/path/to/index")
-    res := g.Query("1", 565657, 567999)
+    index := giggle.Open("/path/to/index")
+    res := index.Query("1", 565657, 567999)
+
+    // all files in the index
+    index.Files()
 
     // int showing total count
     res.TotalHits()

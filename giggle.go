@@ -23,11 +23,13 @@ int giggle_hits(giggle_query_result *gqr, uint32_t *counts) {
 }
 
 char ** giggle_index_files(giggle_index *gi) {
-	// TODO: gi->file_index, but need to know number of files.
+	int i, n = gi->file_idx->index->num;
+	char **names = (char **)malloc(sizeof(char *) * n);
+	for(i=0;i<n;i++){
+		names[i] = gi->file_idx[i].file_name;
+	}
+	return names;
 }
-
-
-
 */
 import "C"
 import (
@@ -37,7 +39,8 @@ import (
 
 // Index wraps the giggle index.
 type Index struct {
-	gi *C.giggle_index
+	gi    *C.giggle_index
+	files []string
 }
 
 // Result is returned from a giggle query.
@@ -51,7 +54,20 @@ func Open(path string) (*Index, error) {
 	defer C.free(unsafe.Pointer(cs))
 	gi := C.giggle_iload(cs)
 	runtime.SetFinalizer(gi, C.giggle_index_destroy)
-	return &Index{gi: gi}, nil
+	idx := &Index{gi: gi}
+	idx.setFiles()
+	return idx, nil
+}
+
+func (i *Index) setFiles() {
+	files := C.giggle_index_files(i.gi)
+	n := int(i.gi.file_idx.index.num)
+	tmpslice := (*[1 << 30]*C.char)(unsafe.Pointer(files))[:n:n]
+	i.files = make([]string, n)
+	for k := 0; k < n; k++ {
+		i.files[k] = C.GoString(tmpslice[k])
+	}
+	C.free(unsafe.Pointer(files))
 }
 
 // Query gives the results for the given genomic location.
@@ -63,8 +79,13 @@ func (i *Index) Query(chrom string, start, end int) *Result {
 	return &Result{gqr: gqr}
 }
 
-// Files returns the number of files in the result-set.
-func (r *Result) Files() int {
+// Files returns the files associated with the index.
+func (i *Index) Files() []string {
+	return i.files
+}
+
+// NFiles returns the number of files in the result-set.
+func (r *Result) NFiles() int {
 	return int(r.gqr.num_files)
 }
 
