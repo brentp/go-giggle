@@ -17,6 +17,12 @@ func main() {
     g := giggle.Open("/path/to/index")
     res := g.Query("1", 565657, 567999)
 
+    // int showing total count
+    res.TotalHits()
+
+    // []uint32 giving number of hits for each file
+    res.Hits()
+
     var lines []string
     # access results by index of file.
     lines = res.Of(0)

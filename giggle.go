@@ -14,6 +14,19 @@ giggle_index *giggle_iload(char *data_dir) {
 	return giggle_load(data_dir, uint32_t_ll_giggle_set_data_handler);
 }
 
+int giggle_hits(giggle_query_result *gqr, uint32_t *counts) {
+	int i;
+	for(i=0;i<gqr->num_files;i++) {
+		counts[i] = giggle_get_query_len(gqr, i);
+	}
+	return 0;
+}
+
+char ** giggle_index_files(giggle_index *gi) {
+	// TODO: gi->file_index, but need to know number of files.
+}
+
+
 
 */
 import "C"
@@ -50,9 +63,21 @@ func (i *Index) Query(chrom string, start, end int) *Result {
 	return &Result{gqr: gqr}
 }
 
-// Files returns the number of files in the result-set
+// Files returns the number of files in the result-set.
 func (r *Result) Files() int {
 	return int(r.gqr.num_files)
+}
+
+// TotalHits returns the total number of overlaps in the result-set.
+func (r *Result) TotalHits() int {
+	return int(r.gqr.num_hits)
+}
+
+// Hits returns the number of overlaps for each file in the result-set.
+func (r *Result) Hits() []uint32 {
+	hits := make([]uint32, r.gqr.num_files)
+	C.giggle_hits(r.gqr, (*C.uint32_t)(unsafe.Pointer(&hits[0])))
+	return hits
 }
 
 // Of returns a slice of strings for the given file index.
