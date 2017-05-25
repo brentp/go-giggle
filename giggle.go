@@ -10,7 +10,15 @@ typedef struct giggle_query_result giggle_query_result;
 typedef struct giggle_query_iter giggle_query_iter;
 
 giggle_index *giggle_iload(char *data_dir) {
-	return giggle_load(data_dir, uint32_t_ll_giggle_set_data_handler);
+
+	giggle_index *gi = giggle_load(data_dir, uint64_t_ll_giggle_set_data_handler);
+    giggle_data_handler.giggle_collect_intersection =
+            giggle_collect_intersection_data_in_block;
+
+    giggle_data_handler.map_intersection_to_offset_list =
+            leaf_data_map_intersection_to_offset_list;
+
+	return gi;
 }
 
 int giggle_hits(giggle_query_result *gqr, uint32_t *counts) {
@@ -21,14 +29,15 @@ int giggle_hits(giggle_query_result *gqr, uint32_t *counts) {
 	return 0;
 }
 
-char ** giggle_index_files(giggle_index *gi) {
-	int i, n = gi->file_idx->index->num;
-	char **names = (char **)malloc(sizeof(char *) * n);
-	for(i=0;i<n;i++){
-		names[i] = gi->file_idx[i].file_name;
-	}
-	return names;
+char *index_file_name(giggle_index *gi, int i) {
+	return file_index_get(gi->file_idx, i)->file_name;
 }
+
+giggle_index *giggle_init2(uint32_t num_chroms, char *data_dir, uint32_t force) {
+
+	return giggle_init(num_chroms, data_dir, force, uint64_t_ll_giggle_set_data_handler);
+}
+
 */
 import "C"
 import (
@@ -39,6 +48,7 @@ import (
 // Index wraps the giggle index.
 type Index struct {
 	gi    *C.giggle_index
+	path  *C.char
 	files []string
 }
 
@@ -47,26 +57,45 @@ type Result struct {
 	gqr *C.giggle_query_result
 }
 
-// Open gets an existing index at the given path.
+// Open an existing index at the given path.
 func Open(path string) (*Index, error) {
 	cs := C.CString(path)
-	defer C.free(unsafe.Pointer(cs))
 	gi := C.giggle_iload(cs)
-	runtime.SetFinalizer(gi, C.giggle_index_destroy)
-	idx := &Index{gi: gi}
+	idx := &Index{gi: gi, path: cs}
+	runtime.SetFinalizer(idx, destroy)
 	idx.setFiles()
 	return idx, nil
 }
 
+func destroy(i *Index) {
+	C.giggle_index_destroy(&i.gi)
+	C.free(unsafe.Pointer(i.path))
+}
+
+// New creates a new index in the given directory and files it with files matching the glob.
+func New(path string, glob string) (*Index, error) {
+	cs := C.CString(path)
+	defer C.free(unsafe.Pointer(cs))
+	cg := C.CString(glob)
+	defer C.free(unsafe.Pointer(cg))
+	C.giggle_bulk_insert(cg, cs, C.uint32_t(1))
+	return Open(path)
+}
+
 func (i *Index) setFiles() {
-	files := C.giggle_index_files(i.gi)
-	n := int(i.gi.file_idx.index.num)
-	tmpslice := (*[1 << 30]*C.char)(unsafe.Pointer(files))[:n:n]
-	i.files = make([]string, n)
-	for k := 0; k < n; k++ {
-		i.files[k] = C.GoString(tmpslice[k])
+
+	var names **C.char
+	var numIntervals *C.uint32_t
+	var meanIntervalSice *C.double
+
+	nFiles := C.giggle_get_indexed_files(i.path, &names, &numIntervals, &meanIntervalSice)
+	n := int(nFiles)
+	tmpslice := (*[1 << 30]*C.char)(unsafe.Pointer(names))[:n:n]
+
+	i.files = make([]string, int(nFiles))
+	for k, name := range tmpslice {
+		i.files[k] = C.GoString(name)
 	}
-	C.free(unsafe.Pointer(files))
 }
 
 // Query gives the results for the given genomic location.
@@ -74,8 +103,13 @@ func (i *Index) Query(chrom string, start, end int) *Result {
 	cs := C.CString(chrom)
 	gqr := C.giggle_query(i.gi, cs, C.uint32_t(start), C.uint32_t(end), nil)
 	C.free(unsafe.Pointer(cs))
-	runtime.SetFinalizer(gqr, C.giggle_query_result_destroy)
-	return &Result{gqr: gqr}
+	r := &Result{gqr: gqr}
+	runtime.SetFinalizer(r, destroy_query_result)
+	return r
+}
+
+func destroy_query_result(r *Result) {
+	C.giggle_query_result_destroy(&r.gqr)
 }
 
 // Files returns the files associated with the index.
