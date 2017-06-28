@@ -141,7 +141,7 @@ func (r *Result) Of(i int) []string {
 	var result *C.char
 	for {
 		v := C.giggle_query_next(gqi, &result)
-		if v == 0 {
+		if v != 0 {
 			break
 		}
 		n = append(n, C.GoString(result))
